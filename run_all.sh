@@ -192,11 +192,16 @@ docker login -u "$DOCKERHUB_USERNAME" 2>&1 | tee -a "$LOG"
 STEP "TASK 3B: Tag Images for Docker Hub"
 docker tag taskflow-backend:local  "${DOCKERHUB_USERNAME}/taskflow-backend:v1"      2>&1 | tee -a "$LOG"
 docker tag taskflow-backend:local  "${DOCKERHUB_USERNAME}/taskflow-backend:latest"  2>&1 | tee -a "$LOG"
+docker tag taskflow-backend:local  "${DOCKERHUB_USERNAME}/backend:v1"               2>&1 | tee -a "$LOG"
+docker tag taskflow-backend:local  "${DOCKERHUB_USERNAME}/backend:latest"           2>&1 | tee -a "$LOG"
+
 docker tag taskflow-frontend:local "${DOCKERHUB_USERNAME}/taskflow-frontend:v1"     2>&1 | tee -a "$LOG"
 docker tag taskflow-frontend:local "${DOCKERHUB_USERNAME}/taskflow-frontend:latest" 2>&1 | tee -a "$LOG"
+docker tag taskflow-frontend:local "${DOCKERHUB_USERNAME}/frontend:v1"              2>&1 | tee -a "$LOG"
+docker tag taskflow-frontend:local "${DOCKERHUB_USERNAME}/frontend:latest"          2>&1 | tee -a "$LOG"
 echo "" | tee -a "$LOG"
-docker images | grep -E "REPOSITORY|taskflow" 2>&1 | tee -a "$LOG"
-PASS "All 4 tags created (v1 + latest for backend and frontend)"
+docker images | grep -E "REPOSITORY|taskflow|backend|frontend" 2>&1 | tee -a "$LOG"
+PASS "All tags created (both 'backend/frontend' and 'taskflow-backend/frontend')"
 
 # =============================================================================
 # TASK 3C – Push Backend to Docker Hub  [SCREENSHOT THIS]
@@ -204,7 +209,9 @@ PASS "All 4 tags created (v1 + latest for backend and frontend)"
 STEP "TASK 3C: Push Backend to Docker Hub"
 docker push "${DOCKERHUB_USERNAME}/taskflow-backend:v1" 2>&1 | tee -a "$LOG"
 docker push "${DOCKERHUB_USERNAME}/taskflow-backend:latest" 2>&1 | tee -a "$LOG"
-PASS "Backend pushed: ${DOCKERHUB_USERNAME}/taskflow-backend:v1 and :latest"
+docker push "${DOCKERHUB_USERNAME}/backend:v1" 2>&1 | tee -a "$LOG"
+docker push "${DOCKERHUB_USERNAME}/backend:latest" 2>&1 | tee -a "$LOG"
+PASS "Backend pushed: all tags to Docker Hub"
 
 # =============================================================================
 # TASK 3D – Push Frontend to Docker Hub  [SCREENSHOT THIS]
@@ -212,7 +219,9 @@ PASS "Backend pushed: ${DOCKERHUB_USERNAME}/taskflow-backend:v1 and :latest"
 STEP "TASK 3D: Push Frontend to Docker Hub"
 docker push "${DOCKERHUB_USERNAME}/taskflow-frontend:v1" 2>&1 | tee -a "$LOG"
 docker push "${DOCKERHUB_USERNAME}/taskflow-frontend:latest" 2>&1 | tee -a "$LOG"
-PASS "Frontend pushed: ${DOCKERHUB_USERNAME}/taskflow-frontend:v1 and :latest"
+docker push "${DOCKERHUB_USERNAME}/frontend:v1" 2>&1 | tee -a "$LOG"
+docker push "${DOCKERHUB_USERNAME}/frontend:latest" 2>&1 | tee -a "$LOG"
+PASS "Frontend pushed: all tags to Docker Hub"
 
 # =============================================================================
 # TASK 4A – Bring down build stack  [SCREENSHOT THIS]
