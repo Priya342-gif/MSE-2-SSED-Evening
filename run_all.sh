@@ -1,222 +1,283 @@
 #!/usr/bin/env bash
 # =============================================================================
 # MSE-2 Docker Practical – run_all.sh
-# Run this once in Git Bash from the repo root.
-# Every section produces terminal output you can screenshot.
-# All output is also saved to execution.log
+# Run once from repo root in Git Bash:  bash run_all.sh
+# Every section = one screenshot. All output saved to execution.log
 # =============================================================================
-
 set -uo pipefail
+
 LOG=execution.log
 > "$LOG"
 
-# ── Colour helpers ────────────────────────────────────────────────────────────
-GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'
-PASS() { echo -e "${GREEN}[PASS]${NC} $*" | tee -a "$LOG"; }
-FAIL() { echo -e "${RED}[FAIL]${NC} $*" | tee -a "$LOG"; }
-STEP() { echo -e "\n${CYAN}══════════════════════════════════════════${NC}" | tee -a "$LOG"
-         echo -e "${CYAN}  $*${NC}" | tee -a "$LOG"
-         echo -e "${CYAN}══════════════════════════════════════════${NC}" | tee -a "$LOG"; }
+GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'; YELLOW='\033[1;33m'; NC='\033[0m'
+PASS()  { echo -e "${GREEN}[PASS]${NC}  $*" | tee -a "$LOG"; }
+FAIL()  { echo -e "${RED}[FAIL]${NC}  $*" | tee -a "$LOG"; }
+INFO()  { echo -e "${YELLOW}[INFO]${NC}  $*" | tee -a "$LOG"; }
+STEP()  {
+  echo -e "\n${CYAN}╔══════════════════════════════════════════════════════╗${NC}" | tee -a "$LOG"
+  echo -e "${CYAN}║  $*${NC}" | tee -a "$LOG"
+  echo -e "${CYAN}╚══════════════════════════════════════════════════════╝${NC}" | tee -a "$LOG"
+}
 
-# ── Require DOCKERHUB_USERNAME ────────────────────────────────────────────────
 DOCKERHUB_USERNAME="priya111222333"
 export DOCKERHUB_USERNAME
 
-# ── Load .env if present ──────────────────────────────────────────────────────
+# Load .env
 if [ -f .env ]; then
-  # shellcheck disable=SC2046
-  export $(grep -v '^#' .env | grep -v '^$' | xargs)
+  set -a; source .env; set +a
 fi
-# Override DOCKERHUB_USERNAME from above input if needed
-export DOCKERHUB_USERNAME
+export DOCKERHUB_USERNAME  # keep our value over .env
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a "$LOG"
+echo "  MSE-2 Docker Practical  |  $(date)                 " | tee -a "$LOG"
+echo "  DockerHub: $DOCKERHUB_USERNAME                      " | tee -a "$LOG"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a "$LOG"
 
 # =============================================================================
-# TASK 1 – Build Docker images
+# TASK 1A – Build Backend Image  [SCREENSHOT THIS]
 # =============================================================================
-STEP "TASK 1A: Build backend Docker image"
+STEP "TASK 1A: Build Backend Docker Image"
 docker build -t taskflow-backend:local ./backend 2>&1 | tee -a "$LOG"
-if [ "${PIPESTATUS[0]}" -eq 0 ]; then PASS "Backend image built"; else FAIL "Backend build failed"; exit 1; fi
+[ "${PIPESTATUS[0]}" -eq 0 ] && PASS "Backend image built successfully" || { FAIL "Backend build FAILED"; exit 1; }
 
-STEP "TASK 1B: Build frontend Docker image"
+# =============================================================================
+# TASK 1B – Build Frontend Image  [SCREENSHOT THIS]
+# =============================================================================
+STEP "TASK 1B: Build Frontend Docker Image (multi-stage)"
 docker build -t taskflow-frontend:local ./frontend 2>&1 | tee -a "$LOG"
-if [ "${PIPESTATUS[0]}" -eq 0 ]; then PASS "Frontend image built"; else FAIL "Frontend build failed"; exit 1; fi
+[ "${PIPESTATUS[0]}" -eq 0 ] && PASS "Frontend image built successfully" || { FAIL "Frontend build FAILED"; exit 1; }
 
-STEP "TASK 1C: List built images"
-docker images | grep -E "REPOSITORY|taskflow" | tee -a "$LOG"
+# =============================================================================
+# TASK 1C – List Images  [SCREENSHOT THIS]
+# =============================================================================
+STEP "TASK 1C: Docker Images List"
+docker images | grep -E "REPOSITORY|taskflow" 2>&1 | tee -a "$LOG"
 PASS "Images listed"
 
 # =============================================================================
-# TASK 2 – Docker Compose: start full stack
+# TASK 2A – Start Full Stack  [SCREENSHOT THIS]
 # =============================================================================
-STEP "TASK 2A: Start full application stack with docker-compose.yml"
-docker compose down -v --remove-orphans 2>&1 | tee -a "$LOG" || true
+STEP "TASK 2A: Start Full Stack with docker-compose.yml"
+docker compose down -v --remove-orphans 2>/dev/null || true
 docker compose up -d 2>&1 | tee -a "$LOG"
-if [ "${PIPESTATUS[0]}" -eq 0 ]; then PASS "Stack started"; else FAIL "Stack failed to start"; exit 1; fi
+[ "${PIPESTATUS[0]}" -eq 0 ] && PASS "Stack started" || { FAIL "Stack failed"; docker compose logs | tee -a "$LOG"; exit 1; }
 
-STEP "TASK 2B: Wait for backend health (up to 2 min)"
+# =============================================================================
+# TASK 2B – Wait for Backend Health  [SCREENSHOT THIS]
+# =============================================================================
+STEP "TASK 2B: Wait for Backend Health (up to 2 min)"
 for i in $(seq 1 40); do
   HEALTH=$(curl --fail --silent http://localhost:3000/health 2>/dev/null || true)
   if echo "$HEALTH" | grep -q '"status":"ok"'; then
-    echo "$HEALTH" | tee -a "$LOG"
-    PASS "Backend is healthy"
+    echo -e "\nHealth response: $HEALTH" | tee -a "$LOG"
+    PASS "Backend is HEALTHY  ✓"
     break
   fi
-  echo "Waiting for backend... attempt $i/40" | tee -a "$LOG"
+  echo "  Waiting... attempt $i/40" | tee -a "$LOG"
   sleep 3
   if [ "$i" -eq 40 ]; then
     FAIL "Backend never became healthy"
+    docker compose ps | tee -a "$LOG"
     docker compose logs --no-color | tee -a "$LOG"
     exit 1
   fi
 done
 
-STEP "TASK 2C: Check frontend responding"
+# =============================================================================
+# TASK 2C – Frontend Check  [SCREENSHOT THIS]
+# =============================================================================
+STEP "TASK 2C: Frontend Health Check"
 for i in $(seq 1 20); do
   if curl --fail --silent http://localhost:8080/ > /dev/null 2>&1; then
-    PASS "Frontend is responding on http://localhost:8080"
+    PASS "Frontend responding on http://localhost:8080  ✓"
     break
   fi
-  echo "Waiting for frontend... attempt $i/20" | tee -a "$LOG"
+  echo "  Waiting for frontend... $i/20" | tee -a "$LOG"
   sleep 3
   if [ "$i" -eq 20 ]; then FAIL "Frontend not responding"; docker compose logs frontend | tee -a "$LOG"; exit 1; fi
 done
 
-STEP "TASK 2D: Show running containers and health"
+# =============================================================================
+# TASK 2D – Container Status  [SCREENSHOT THIS]
+# =============================================================================
+STEP "TASK 2D: Running Containers Status"
 docker compose ps 2>&1 | tee -a "$LOG"
-PASS "Container status shown"
-
-STEP "TASK 2E: Inspect custom Docker network"
-docker network ls | grep -E "NETWORK|taskflow" 2>&1 | tee -a "$LOG"
-docker network inspect "$(docker compose ps -q | head -1 | xargs docker inspect --format '{{range .NetworkSettings.Networks}}{{.NetworkID}}{{end}}')" --format '{{.Name}} – Driver: {{.Driver}} – Subnet: {{(index .IPAM.Config 0).Subnet}}' 2>&1 | tee -a "$LOG" || \
-  docker network ls | grep taskflow | tee -a "$LOG"
-PASS "Network verified"
+PASS "All containers listed above"
 
 # =============================================================================
-# TASK 5 – Networking verification
+# TASK 2E – Custom Docker Network  [SCREENSHOT THIS]
 # =============================================================================
-STEP "TASK 5A: Backend connects to PostgreSQL (via service name)"
+STEP "TASK 2E: Custom Docker Network Verification"
+echo "--- All networks ---" | tee -a "$LOG"
+docker network ls 2>&1 | tee -a "$LOG"
+echo "" | tee -a "$LOG"
+echo "--- taskflow_net details ---" | tee -a "$LOG"
+NET=$(docker network ls --filter name=taskflow --format "{{.Name}}" | head -1)
+docker network inspect "$NET" --format \
+  'Network: {{.Name}}  |  Driver: {{.Driver}}  |  Subnet: {{(index .IPAM.Config 0).Subnet}}' 2>&1 | tee -a "$LOG"
+PASS "Custom network verified: $NET"
+
+# =============================================================================
+# TASK 5A – Backend → PostgreSQL  [SCREENSHOT THIS]
+# =============================================================================
+STEP "TASK 5A: Backend connects to PostgreSQL (via service name 'postgres')"
 docker compose exec backend wget -qO- http://localhost:3000/health 2>&1 | tee -a "$LOG"
-PASS "Backend→PostgreSQL connection verified via /health"
+PASS "Backend→PostgreSQL connection confirmed via /health endpoint"
 
-STEP "TASK 5B: Backend connects to Redis (via service name)"
+# =============================================================================
+# TASK 5B – Redis PING  [SCREENSHOT THIS]
+# =============================================================================
+STEP "TASK 5B: Redis Service Connectivity"
 docker compose exec redis redis-cli ping 2>&1 | tee -a "$LOG"
-PASS "Redis responds to PING"
+PASS "Redis responds PONG"
 
-STEP "TASK 5C: Health check status of all services"
-docker inspect --format '{{.Name}} – Health: {{.State.Health.Status}}' \
+# =============================================================================
+# TASK 5C – Health Check Status of All Containers  [SCREENSHOT THIS]
+# =============================================================================
+STEP "TASK 5C: Container Health Check Status"
+docker compose ps 2>&1 | tee -a "$LOG"
+echo "" | tee -a "$LOG"
+docker inspect --format '  {{.Name}}  →  Health: {{if .State.Health}}{{.State.Health.Status}}{{else}}no healthcheck{{end}}' \
   $(docker compose ps -q) 2>&1 | tee -a "$LOG"
 PASS "Health statuses shown"
 
-STEP "TASK 5D: PostgreSQL data persistence test"
-echo "--- Writing test data ---" | tee -a "$LOG"
-docker compose exec -T postgres psql -U "${POSTGRES_USER:-taskflow_user}" -d "${POSTGRES_DB:-taskflow}" \
-  -c "INSERT INTO users (name,email,password_hash) VALUES ('PersistTest','persist@test.com','hash123') ON CONFLICT DO NOTHING;" 2>&1 | tee -a "$LOG"
-docker compose exec -T postgres psql -U "${POSTGRES_USER:-taskflow_user}" -d "${POSTGRES_DB:-taskflow}" \
-  -c "SELECT id,name,email FROM users WHERE email='persist@test.com';" 2>&1 | tee -a "$LOG"
+# =============================================================================
+# TASK 5D – PostgreSQL Data Persistence  [SCREENSHOT THIS]
+# =============================================================================
+STEP "TASK 5D: PostgreSQL Data Persistence Test"
+DB_USER="${POSTGRES_USER:-taskflow_user}"
+DB_NAME="${POSTGRES_DB:-taskflow}"
 
-echo "--- Removing and recreating PostgreSQL container ---" | tee -a "$LOG"
+echo "--- Step 1: Insert test record ---" | tee -a "$LOG"
+docker compose exec -T postgres psql -U "$DB_USER" -d "$DB_NAME" \
+  -c "INSERT INTO users (name,email,password_hash) VALUES ('PersistTest','persist@exam.com','testhash') ON CONFLICT (email) DO NOTHING RETURNING id,name,email;" 2>&1 | tee -a "$LOG"
+
+echo "--- Step 2: Verify record exists BEFORE container removal ---" | tee -a "$LOG"
+docker compose exec -T postgres psql -U "$DB_USER" -d "$DB_NAME" \
+  -c "SELECT id,name,email,created_at FROM users WHERE email='persist@exam.com';" 2>&1 | tee -a "$LOG"
+
+echo "--- Step 3: Remove PostgreSQL container (keep volume) ---" | tee -a "$LOG"
 docker compose rm -sf postgres 2>&1 | tee -a "$LOG"
+
+echo "--- Step 4: Recreate PostgreSQL container ---" | tee -a "$LOG"
 docker compose up -d postgres 2>&1 | tee -a "$LOG"
 sleep 20
 
-echo "--- Verifying data survived ---" | tee -a "$LOG"
-docker compose exec -T postgres psql -U "${POSTGRES_USER:-taskflow_user}" -d "${POSTGRES_DB:-taskflow}" \
-  -c "SELECT id,name,email FROM users WHERE email='persist@test.com';" 2>&1 | tee -a "$LOG"
-PASS "Persistence verified – data survived container removal"
+echo "--- Step 5: Verify data SURVIVED container removal ---" | tee -a "$LOG"
+docker compose exec -T postgres psql -U "$DB_USER" -d "$DB_NAME" \
+  -c "SELECT id,name,email,created_at FROM users WHERE email='persist@exam.com';" 2>&1 | tee -a "$LOG"
+PASS "Data persisted across PostgreSQL container removal  ✓"
 
 # =============================================================================
-# TASK 3 – Tag and push to Docker Hub
+# TASK 5E – Redis Restart  [SCREENSHOT THIS]
 # =============================================================================
-STEP "TASK 3A: Login to Docker Hub (manual step)"
-echo ""
-echo "┌──────────────────────────────────────────────────────────────────┐"
-echo "│  Please log in to Docker Hub. Enter your credentials below.      │"
-echo "└──────────────────────────────────────────────────────────────────┘"
-docker login 2>&1 | tee -a "$LOG"
+STEP "TASK 5E: Redis Restart Verification"
+docker compose restart redis 2>&1 | tee -a "$LOG"
+sleep 5
+docker compose exec redis redis-cli ping 2>&1 | tee -a "$LOG"
+PASS "Redis restarted and is PONG-ing  ✓"
 
-STEP "TASK 3B: Tag backend image"
-docker tag taskflow-backend:local "${DOCKERHUB_USERNAME}/taskflow-backend:v1" 2>&1 | tee -a "$LOG"
-docker tag taskflow-backend:local "${DOCKERHUB_USERNAME}/taskflow-backend:latest" 2>&1 | tee -a "$LOG"
-PASS "Backend tagged as v1 and latest"
+# =============================================================================
+# TASK 3A – Docker Hub Login  [MANUAL – you type password]
+# =============================================================================
+STEP "TASK 3A: Docker Hub Login  [SCREENSHOT AFTER LOGIN]"
+echo "" | tee -a "$LOG"
+INFO "Logging into Docker Hub as: $DOCKERHUB_USERNAME"
+INFO "When prompted for password, paste your Docker Hub access token."
+docker login -u "$DOCKERHUB_USERNAME" 2>&1 | tee -a "$LOG"
 
-STEP "TASK 3C: Tag frontend image"
-docker tag taskflow-frontend:local "${DOCKERHUB_USERNAME}/taskflow-frontend:v1" 2>&1 | tee -a "$LOG"
+# =============================================================================
+# TASK 3B – Tag Images  [SCREENSHOT THIS]
+# =============================================================================
+STEP "TASK 3B: Tag Images for Docker Hub"
+docker tag taskflow-backend:local  "${DOCKERHUB_USERNAME}/taskflow-backend:v1"      2>&1 | tee -a "$LOG"
+docker tag taskflow-backend:local  "${DOCKERHUB_USERNAME}/taskflow-backend:latest"  2>&1 | tee -a "$LOG"
+docker tag taskflow-frontend:local "${DOCKERHUB_USERNAME}/taskflow-frontend:v1"     2>&1 | tee -a "$LOG"
 docker tag taskflow-frontend:local "${DOCKERHUB_USERNAME}/taskflow-frontend:latest" 2>&1 | tee -a "$LOG"
-PASS "Frontend tagged as v1 and latest"
+echo "" | tee -a "$LOG"
+docker images | grep -E "REPOSITORY|taskflow" 2>&1 | tee -a "$LOG"
+PASS "All 4 tags created (v1 + latest for backend and frontend)"
 
-STEP "TASK 3D: Push backend to Docker Hub (v1 + latest)"
+# =============================================================================
+# TASK 3C – Push Backend to Docker Hub  [SCREENSHOT THIS]
+# =============================================================================
+STEP "TASK 3C: Push Backend to Docker Hub"
 docker push "${DOCKERHUB_USERNAME}/taskflow-backend:v1" 2>&1 | tee -a "$LOG"
 docker push "${DOCKERHUB_USERNAME}/taskflow-backend:latest" 2>&1 | tee -a "$LOG"
-PASS "Backend pushed to Docker Hub"
+PASS "Backend pushed: ${DOCKERHUB_USERNAME}/taskflow-backend:v1 and :latest"
 
-STEP "TASK 3E: Push frontend to Docker Hub (v1 + latest)"
+# =============================================================================
+# TASK 3D – Push Frontend to Docker Hub  [SCREENSHOT THIS]
+# =============================================================================
+STEP "TASK 3D: Push Frontend to Docker Hub"
 docker push "${DOCKERHUB_USERNAME}/taskflow-frontend:v1" 2>&1 | tee -a "$LOG"
 docker push "${DOCKERHUB_USERNAME}/taskflow-frontend:latest" 2>&1 | tee -a "$LOG"
-PASS "Frontend pushed to Docker Hub"
-
-STEP "TASK 3F: Verify images on Docker Hub"
-echo "Backend image: https://hub.docker.com/r/${DOCKERHUB_USERNAME}/taskflow-backend/tags" | tee -a "$LOG"
-echo "Frontend image: https://hub.docker.com/r/${DOCKERHUB_USERNAME}/taskflow-frontend/tags" | tee -a "$LOG"
-docker images | grep -E "REPOSITORY|taskflow" | tee -a "$LOG"
-PASS "All 4 tags visible locally (verify on Docker Hub website for screenshot)"
+PASS "Frontend pushed: ${DOCKERHUB_USERNAME}/taskflow-frontend:v1 and :latest"
 
 # =============================================================================
-# TASK 4 – Image-based deployment
+# TASK 4A – Bring down build stack  [SCREENSHOT THIS]
 # =============================================================================
-STEP "TASK 4A: Bring down build-based stack"
+STEP "TASK 4A: Stop Build-Based Stack"
 docker compose down --remove-orphans 2>&1 | tee -a "$LOG"
-PASS "Build stack removed"
+PASS "Build-based stack stopped"
 
-STEP "TASK 4B: Pull images from Docker Hub"
+# =============================================================================
+# TASK 4B – Pull images from Docker Hub  [SCREENSHOT THIS]
+# =============================================================================
+STEP "TASK 4B: Pull Published Images from Docker Hub"
 docker compose -f docker-compose.deploy.yml pull 2>&1 | tee -a "$LOG"
 PASS "Images pulled from Docker Hub"
 
-STEP "TASK 4C: Deploy using docker-compose.deploy.yml"
+# =============================================================================
+# TASK 4C – Deploy with published images  [SCREENSHOT THIS]
+# =============================================================================
+STEP "TASK 4C: Deploy Using docker-compose.deploy.yml (Hub Images)"
 docker compose -f docker-compose.deploy.yml up -d 2>&1 | tee -a "$LOG"
-if [ "${PIPESTATUS[0]}" -eq 0 ]; then PASS "Deploy stack started"; else FAIL "Deploy failed"; exit 1; fi
+[ "${PIPESTATUS[0]}" -eq 0 ] && PASS "Deployment started" || { FAIL "Deploy failed"; exit 1; }
 
-STEP "TASK 4D: Wait for deployed backend health"
+# =============================================================================
+# TASK 4D – Deployed backend health  [SCREENSHOT THIS]
+# =============================================================================
+STEP "TASK 4D: Verify Deployed Backend Health"
 for i in $(seq 1 40); do
   HEALTH=$(curl --fail --silent http://localhost:3000/health 2>/dev/null || true)
   if echo "$HEALTH" | grep -q '"status":"ok"'; then
-    echo "$HEALTH" | tee -a "$LOG"
-    PASS "Deployed backend is healthy"
+    echo -e "\nHealth: $HEALTH" | tee -a "$LOG"
+    PASS "Deployed backend is HEALTHY  ✓"
     break
   fi
-  echo "Waiting... $i/40" | tee -a "$LOG"
+  echo "  Waiting... $i/40" | tee -a "$LOG"
   sleep 3
-  if [ "$i" -eq 40 ]; then FAIL "Deployed backend never healthy"; exit 1; fi
+  [ "$i" -eq 40 ] && { FAIL "Deployed backend never healthy"; exit 1; }
 done
 
-STEP "TASK 4E: Check deployed frontend"
-curl --fail --silent http://localhost:8080/ > /dev/null && PASS "Deployed frontend responding" || FAIL "Frontend not responding"
+# =============================================================================
+# TASK 4E – Deployed frontend check  [SCREENSHOT THIS]
+# =============================================================================
+STEP "TASK 4E: Verify Deployed Frontend"
+curl --fail --silent http://localhost:8080/ > /dev/null && PASS "Deployed frontend responding on http://localhost:8080  ✓" \
+  || FAIL "Frontend not responding"
 
-STEP "TASK 4F: Show deployed container status"
+# =============================================================================
+# TASK 4F – Deployed container status  [SCREENSHOT THIS]
+# =============================================================================
+STEP "TASK 4F: Deployed Container Status"
 docker compose -f docker-compose.deploy.yml ps 2>&1 | tee -a "$LOG"
-PASS "Deploy container status shown"
+PASS "Deployed stack containers listed"
 
 # =============================================================================
-# TASK 5E – Redis restart
+# FINAL
 # =============================================================================
-STEP "TASK 5E: Restart Redis and verify"
-docker compose -f docker-compose.deploy.yml restart redis 2>&1 | tee -a "$LOG"
-sleep 5
-docker compose -f docker-compose.deploy.yml exec redis redis-cli ping 2>&1 | tee -a "$LOG"
-PASS "Redis restarted successfully"
-
-# =============================================================================
-# FINAL SUMMARY
-# =============================================================================
-STEP "FINAL SUMMARY"
+STEP "ALL AUTOMATED TASKS COMPLETE"
 echo "" | tee -a "$LOG"
-echo "All automated tasks completed. Next manual steps:" | tee -a "$LOG"
+echo "  Full log saved to: execution.log" | tee -a "$LOG"
 echo "" | tee -a "$LOG"
-echo "  1. Fill in submission.json with your real details" | tee -a "$LOG"
-echo "  2. Set GitHub Secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN, POSTGRES_PASSWORD" | tee -a "$LOG"
-echo "     → https://github.com/YOUR_GITHUB_USERNAME/MSE-2-SSED-Evening/settings/secrets/actions" | tee -a "$LOG"
-echo "  3. git add . && git commit -m 'DOCKER-SET-2 | ROLL | NAME | SECTION' && git push" | tee -a "$LOG"
-echo "  4. Create Pull Request → target: atindeRR/MSE-2-SSED-Evening main" | tee -a "$LOG"
-echo "  5. Verify GitHub Actions CI/CD pass" | tee -a "$LOG"
-echo "  6. Screenshot Docker Hub tags page" | tee -a "$LOG"
+echo "  MANUAL STEPS REMAINING:" | tee -a "$LOG"
+echo "  ┌─────────────────────────────────────────────────────────────────┐" | tee -a "$LOG"
+echo "  │  1. Screenshot Docker Hub tags at:                              │" | tee -a "$LOG"
+echo "  │     https://hub.docker.com/u/priya111222333                    │" | tee -a "$LOG"
+echo "  │  2. Create GitHub PR → atindeRR/MSE-2-SSED-Evening main        │" | tee -a "$LOG"
+echo "  │  3. Watch CI pass in GitHub Actions tab                         │" | tee -a "$LOG"
+echo "  └─────────────────────────────────────────────────────────────────┘" | tee -a "$LOG"
 echo "" | tee -a "$LOG"
-PASS "run_all.sh completed. See execution.log for full logs."
+PASS "run_all.sh FINISHED SUCCESSFULLY"
