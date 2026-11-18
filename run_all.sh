@@ -67,7 +67,7 @@ docker compose up -d 2>&1 | tee -a "$LOG"
 # =============================================================================
 STEP "TASK 2B: Wait for Backend Health (up to 2 min)"
 for i in $(seq 1 40); do
-  HEALTH=$(curl --fail --silent http://localhost:3000/health 2>/dev/null || true)
+  HEALTH=$(curl --fail --silent http://localhost:3000/health 2>/dev/null || curl --fail --silent http://127.0.0.1:3000/health 2>/dev/null || true)
   if echo "$HEALTH" | grep -q '"status":"ok"'; then
     echo -e "\nHealth response: $HEALTH" | tee -a "$LOG"
     PASS "Backend is HEALTHY  ✓"
@@ -88,7 +88,7 @@ done
 # =============================================================================
 STEP "TASK 2C: Frontend Health Check"
 for i in $(seq 1 20); do
-  if curl --fail --silent http://localhost:8080/ > /dev/null 2>&1; then
+  if curl --fail --silent http://localhost:8080/ > /dev/null 2>&1 || curl --fail --silent http://127.0.0.1:8080/ > /dev/null 2>&1; then
     PASS "Frontend responding on http://localhost:8080  ✓"
     break
   fi
@@ -121,7 +121,7 @@ PASS "Custom network verified: $NET"
 # TASK 5A – Backend → PostgreSQL  [SCREENSHOT THIS]
 # =============================================================================
 STEP "TASK 5A: Backend connects to PostgreSQL (via service name 'postgres')"
-docker compose exec backend wget -qO- http://localhost:3000/health 2>&1 | tee -a "$LOG"
+docker compose exec backend wget -qO- http://127.0.0.1:3000/health 2>&1 | tee -a "$LOG"
 PASS "Backend→PostgreSQL connection confirmed via /health endpoint"
 
 # =============================================================================
@@ -251,7 +251,7 @@ docker compose -f docker-compose.deploy.yml up -d 2>&1 | tee -a "$LOG"
 # =============================================================================
 STEP "TASK 4D: Verify Deployed Backend Health"
 for i in $(seq 1 40); do
-  HEALTH=$(curl --fail --silent http://localhost:3000/health 2>/dev/null || true)
+  HEALTH=$(curl --fail --silent http://localhost:3000/health 2>/dev/null || curl --fail --silent http://127.0.0.1:3000/health 2>/dev/null || true)
   if echo "$HEALTH" | grep -q '"status":"ok"'; then
     echo -e "\nHealth: $HEALTH" | tee -a "$LOG"
     PASS "Deployed backend is HEALTHY  ✓"
@@ -266,7 +266,7 @@ done
 # TASK 4E – Deployed frontend check  [SCREENSHOT THIS]
 # =============================================================================
 STEP "TASK 4E: Verify Deployed Frontend"
-curl --fail --silent http://localhost:8080/ > /dev/null && PASS "Deployed frontend responding on http://localhost:8080  ✓" \
+(curl --fail --silent http://localhost:8080/ > /dev/null || curl --fail --silent http://127.0.0.1:8080/ > /dev/null) && PASS "Deployed frontend responding" \
   || FAIL "Frontend not responding"
 
 # =============================================================================
