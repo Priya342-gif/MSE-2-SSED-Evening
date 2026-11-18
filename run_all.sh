@@ -19,13 +19,7 @@ STEP() { echo -e "\n${CYAN}═════════════════�
          echo -e "${CYAN}══════════════════════════════════════════${NC}" | tee -a "$LOG"; }
 
 # ── Require DOCKERHUB_USERNAME ────────────────────────────────────────────────
-if [ -z "${DOCKERHUB_USERNAME:-}" ]; then
-  echo ""
-  echo "┌─────────────────────────────────────────────────────┐"
-  echo "│  Enter your Docker Hub username (for image tagging): │"
-  echo "└─────────────────────────────────────────────────────┘"
-  read -r DOCKERHUB_USERNAME
-fi
+DOCKERHUB_USERNAME="priya111222333"
 export DOCKERHUB_USERNAME
 
 # ── Load .env if present ──────────────────────────────────────────────────────
