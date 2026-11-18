@@ -178,13 +178,15 @@ docker compose exec redis redis-cli ping 2>&1 | tee -a "$LOG"
 PASS "Redis restarted and is PONG-ing  ✓"
 
 # =============================================================================
-# TASK 3A – Docker Hub Login  [MANUAL – you type password]
+# TASK 3A – Docker Hub Login  [SCREENSHOT THIS]
 # =============================================================================
-STEP "TASK 3A: Docker Hub Login  [SCREENSHOT AFTER LOGIN]"
-echo "" | tee -a "$LOG"
-INFO "Logging into Docker Hub as: $DOCKERHUB_USERNAME"
-INFO "When prompted for password, paste your Docker Hub access token."
-docker login -u "$DOCKERHUB_USERNAME" 2>&1 | tee -a "$LOG"
+STEP "TASK 3A: Docker Hub Login"
+if [ -n "${DOCKERHUB_TOKEN:-}" ]; then
+  echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin 2>&1 | tee -a "$LOG"
+else
+  docker login -u "$DOCKERHUB_USERNAME" 2>&1 | tee -a "$LOG"
+fi
+PASS "Docker Hub login succeeded for $DOCKERHUB_USERNAME"
 
 # =============================================================================
 # TASK 3B – Tag Images  [SCREENSHOT THIS]
